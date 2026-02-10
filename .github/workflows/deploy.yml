@@ -1,49 +1,49 @@
-name: Deploy to Cloud Run via Artifact Registry
+name: Deploy to Cloud Run
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+env:
+  PROJECT_ID: primal-hybrid-459420-m2
+  SERVICE_NAME: omniservice
+  REGION: us-central1
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
-      - name: Set up Google Cloud SDK
+      - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Configure Docker to use gcloud as credential helper
-        run: |
-          gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+      - name: Authorize Docker push
+        run: gcloud auth configure-docker --quiet
 
-      - name: Build Docker image
-        run: |
-          docker build -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/${{ secrets.CLOUD_RUN_SERVICE }} .
-
-      - name: Push Docker image to Artifact Registry
-        run: |
-          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/${{ secrets.CLOUD_RUN_SERVICE }}
-
-      # Optional: write key.json if needed by the app at runtime
-      - name: Write key.json from GitHub Secret
-        run: echo "${{ secrets.GCP_KEY_JSON }}" > key.json
+      - name: Build and Push Container
+        run: |-
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE }} \
-            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/${{ secrets.CLOUD_RUN_SERVICE }} \
-            --region ${{ secrets.GCP_REGION }} \
+        run: |-
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
-            --quiet \
-            --set-env-vars "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},PROJECT_ID=${{ secrets.GCP_PROJECT_ID }},REGION=${{ secrets.GCP_REGION }},GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},OPENAI_MODEL_NAME=${{ secrets.OPENAI_MODEL_NAME }},EMBEDDING_MODEL_NAME=${{ secrets.EMBEDDING_MODEL_NAME }},PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }},PINECONE_INDEX=${{ secrets.PINECONE_INDEX }},GOOGLE_APPLICATION_CREDENTIALS=key.json"
+            --set-env-vars "SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_KEY=${{ secrets.SUPABASE_KEY }},PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }},PINECONE_INDEX=${{ secrets.PINECONE_INDEX }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},OPENAI_MODEL_NAME=gpt-3.5-turbo,GCP_PROJECT_ID=${{ env.PROJECT_ID }},GCP_LOCATION=${{ env.REGION }},GEMINI_MODEL_NAME=gemini-2.0-flash-001,EMBEDDING_MODEL_NAME=text-embedding-005,ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}"
