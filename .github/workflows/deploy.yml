@@ -1,0 +1,49 @@
+name: Deploy to Cloud Run via Artifact Registry
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker to use gcloud as credential helper
+        run: |
+          gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/${{ secrets.CLOUD_RUN_SERVICE }} .
+
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/${{ secrets.CLOUD_RUN_SERVICE }}
+
+      # Optional: write key.json if needed by the app at runtime
+      - name: Write key.json from GitHub Secret
+        run: echo "${{ secrets.GCP_KEY_JSON }}" > key.json
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE }} \
+            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/${{ secrets.CLOUD_RUN_SERVICE }} \
+            --region ${{ secrets.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --quiet \
+            --set-env-vars "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},PROJECT_ID=${{ secrets.GCP_PROJECT_ID }},REGION=${{ secrets.GCP_REGION }},GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},OPENAI_MODEL_NAME=${{ secrets.OPENAI_MODEL_NAME }},EMBEDDING_MODEL_NAME=${{ secrets.EMBEDDING_MODEL_NAME }},PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }},PINECONE_INDEX=${{ secrets.PINECONE_INDEX }},GOOGLE_APPLICATION_CREDENTIALS=key.json"

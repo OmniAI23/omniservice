@@ -1,0 +1,52 @@
+# ------------------------------
+# Core Web App
+# ------------------------------
+fastapi==0.115.12
+uvicorn==0.34.2
+python-dotenv==1.1.0
+requests==2.32.3
+httpx==0.28.1
+websockets==15.0.1
+orjson==3.10.18
+email_validator==2.2.0
+Jinja2==3.1.6
+
+# ------------------------------
+# Google Gemini & Vertex AI
+# ------------------------------
+google-cloud-aiplatform==1.92.0
+google-genai==1.14.0
+google-cloud-speech
+
+# ------------------------------
+# Pinecone + Supabase
+# ------------------------------
+pinecone==7.3.0
+supabase==2.16.0
+
+# ------------------------------
+# File Upload + Parsing
+# ------------------------------
+python-multipart==0.0.9   # Needed for FastAPI file uploads
+pypdf==3.17.4             # PDF file reading
+python-docx==1.1.2        # DOCX file reading
+beautifulsoup4
+yt-dlp==2025.9.5
+
+# ------------------------------
+# LangChain Stack (latest stable)
+# ------------------------------
+langchain==0.3.6
+langchain-core
+langchain-community==0.3.2
+langsmith
+
+# ------------------------------
+# Embeddings / Token Utilities
+# ------------------------------
+tiktoken==0.7.0
+
+# ------------------------------
+# Dependency Constraint
+# ------------------------------
+packaging>=24.2,<25.0   # Required for Pinecone + LangChain compatibility
