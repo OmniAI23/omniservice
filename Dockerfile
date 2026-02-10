@@ -4,7 +4,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
-# Set Next.js to static export mode
+# Explicitly set Next.js to export mode
 ENV NEXT_OUTPUT_EXPORT=true
 RUN npm run build
 
@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./
 
 # Copy Built Frontend from Stage 1
-# We will put them in a 'static' folder that FastAPI can serve
+# Ensure the folder exists if Next.js export was successful
 COPY --from=frontend-builder /app/frontend/out ./static
 
 # Create non-root user
@@ -41,5 +41,5 @@ USER appuser
 
 EXPOSE 8080
 
-# CMD to run the backend
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
+# Use JSON array for CMD as recommended by Docker
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
