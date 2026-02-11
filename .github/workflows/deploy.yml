@@ -9,6 +9,8 @@ env:
   PROJECT_ID: primal-hybrid-459420-m2
   SERVICE_NAME: omniservice
   REGION: us-central1
+  # Modern Artifact Registry Path
+  IMAGE_NAME: us-central1-docker.pkg.dev/primal-hybrid-459420-m2/omniservice-repo/omniservice
 
 jobs:
   deploy:
@@ -31,18 +33,26 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Create Artifact Registry Repository
+        run: |-
+          gcloud artifacts repositories create omniservice-repo \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --description="OmniService Docker Repository" \
+            --project=${{ env.PROJECT_ID }} || true
+
       - name: Authorize Docker push
-        run: gcloud auth configure-docker --quiet
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       - name: Build and Push Container
         run: |-
-          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
-          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
         run: |-
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
