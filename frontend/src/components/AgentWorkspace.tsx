@@ -22,6 +22,7 @@ import {
   Code
 } from "lucide-react";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import Toast, { useToast } from "./Toast";
 
 interface AgentWorkspaceProps {
   bot: any;
@@ -34,6 +35,9 @@ export default function AgentWorkspace({ bot: initialBot, token, onDeleteSuccess
   const [activeTab, setActiveTab] = useState<'knowledge' | 'chat' | 'publish'>('chat');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
+  // Toast Management
+  const { toast, showToast, hideToast } = useToast();
+
   // Chat State
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -102,6 +106,7 @@ export default function AgentWorkspace({ bot: initialBot, token, onDeleteSuccess
       }
     } catch (err) {
       console.error("Chat error", err);
+      showToast("Chat response failed.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -115,10 +120,10 @@ export default function AgentWorkspace({ bot: initialBot, token, onDeleteSuccess
         { url: urlInput },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      alert("Website content successfully integrated!");
+      showToast("Website integrated!");
       setUrlInput("");
     } catch (err) {
-      alert("Failed to crawl the website.");
+      showToast("Crawl failed. Check URL.", "error");
     } finally {
       setIsCrawling(false);
     }
@@ -132,8 +137,9 @@ export default function AgentWorkspace({ bot: initialBot, token, onDeleteSuccess
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setBot(res.data.bot);
+      showToast(res.data.bot.is_published ? "Agent is now live!" : "Agent unpublished.");
     } catch (err) {
-      alert("Failed to update status");
+      showToast("Status update failed.", "error");
     } finally {
       setIsPublishing(false);
     }
@@ -146,22 +152,25 @@ export default function AgentWorkspace({ bot: initialBot, token, onDeleteSuccess
       });
       onDeleteSuccess();
     } catch (err) {
-      alert("Failed to delete the agent.");
+      showToast("Failed to delete agent.", "error");
     }
   };
 
   const copyToClipboard = (text: string, setter: any) => {
     navigator.clipboard.writeText(text);
     setter(true);
+    showToast("Copied to clipboard!");
     setTimeout(() => setter(false), 2000);
   };
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-white relative overflow-hidden">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+
       {/* Management Header */}
       <header className="border-b border-slate-100 bg-white shrink-0 z-30">
         <div className="px-6 py-6 flex flex-col gap-6">
-          <div className="flex flex-col gap-3">
+          <div className="flex justify-between items-start">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight">{bot.name}</h2>
               <div className="flex items-center gap-3 mt-1">
@@ -176,7 +185,6 @@ export default function AgentWorkspace({ bot: initialBot, token, onDeleteSuccess
               </div>
             </div>
             
-            {/* Relocated Delete Agent Button */}
             <button 
               onClick={() => setIsDeleteModalOpen(true)}
               className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold hover:bg-red-600 hover:text-white transition-all self-start border border-red-100"
@@ -200,8 +208,31 @@ export default function AgentWorkspace({ bot: initialBot, token, onDeleteSuccess
           <div className="flex-1 overflow-y-auto p-6 sm:p-10">
             <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <UploadCard title="Documents" description="PDF, DOCX, or TXT." icon={<FileText size={20} className="text-blue-500" />} accept=".pdf,.docx,.txt" onUpload={async (fd: any) => axios.post(`/api/upload`, fd, { headers: { Authorization: `Bearer ${token}` } })} botId={bot.id} />
-                  <UploadCard title="Audio" description="MP3, WAV, etc." icon={<AudioWaveform size={20} className="text-purple-500" />} accept="audio/*" onUpload={async (fd: any) => axios.post(`/api/upload/audio`, fd, { headers: { Authorization: `Bearer ${token}` } })} botId={bot.id} variant="purple" />
+                  <UploadCard 
+                    title="Documents" 
+                    description="PDF, DOCX, or TXT." 
+                    icon={<FileText size={20} className="text-blue-500" />} 
+                    accept=".pdf,.docx,.txt" 
+                    onUpload={async (fd: any) => { 
+                      await axios.post(`/api/upload`, fd, { headers: { Authorization: `Bearer ${token}` } });
+                    }} 
+                    showToast={showToast}
+                    botId={bot.id} 
+                  />
+                  
+                  <UploadCard 
+                    title="Audio" 
+                    description="MP3, WAV, etc." 
+                    icon={<AudioWaveform size={20} className="text-purple-500" />} 
+                    accept="audio/*" 
+                    onUpload={async (fd: any) => {
+                      await axios.post(`/api/upload/audio`, fd, { headers: { Authorization: `Bearer ${token}` } });
+                    }} 
+                    showToast={showToast}
+                    botId={bot.id} 
+                    variant="purple" 
+                  />
+                  
                   <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col">
                       <div className="flex items-center gap-3 mb-3">
                           <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><Globe size={20} /></div>
@@ -363,7 +394,7 @@ function TabButton({ active, onClick, icon, label }: any) {
   );
 }
 
-function UploadCard({ title, description, icon, accept, onUpload, botId, variant = "blue" }: any) {
+function UploadCard({ title, description, icon, accept, onUpload, botId, showToast, variant = "blue" }: any) {
     const [isUploading, setIsUploading] = useState(false);
     return (
         <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col">
@@ -382,7 +413,15 @@ function UploadCard({ title, description, icon, accept, onUpload, botId, variant
                         const formData = new FormData();
                         formData.append("file", file);
                         formData.append("bot_id", botId);
-                        try { await onUpload(formData); alert("Success!"); } catch (err) { alert("Error!"); } finally { setIsUploading(false); e.target.value = ""; }
+                        try { 
+                            await onUpload(formData); 
+                            showToast(`${title} integrated!`);
+                        } catch (err) { 
+                            showToast("Upload failed", "error"); 
+                        } finally { 
+                            setIsUploading(false); 
+                            e.target.value = ""; 
+                        }
                     }} />
                 </label>
             </div>

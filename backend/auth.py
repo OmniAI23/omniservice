@@ -43,7 +43,8 @@ def register_user(
                 detail="Registration failed"
             )
 
-        return {"message": "User registered successfully. Please check your email for confirmation.", "user": resp.user.model_dump()}
+        # Updated message for instant login
+        return {"message": "Account created successfully! You can now log in.", "user": resp.user.model_dump()}
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

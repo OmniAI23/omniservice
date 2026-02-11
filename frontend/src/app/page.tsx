@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import Dashboard from "@/components/Dashboard";
 import AgentWorkspace from "@/components/AgentWorkspace";
+import Toast, { useToast } from "@/components/Toast";
+import CreateAgentModal from "@/components/CreateAgentModal";
 
 const API_BASE_URL = "/api";
 const ADMIN_EMAIL = "placidusagukwe21@gmail.com";
@@ -32,6 +34,10 @@ export default function Home() {
   const [selectedBot, setSelectedBot] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Toast Management
+  const { toast, showToast, hideToast } = useToast();
 
   // Auth View Toggle: 'login' | 'register' | 'forgot'
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
@@ -62,21 +68,21 @@ export default function Home() {
         localStorage.setItem("token", access_token);
         localStorage.setItem("user", JSON.stringify(user));
         
+        showToast("Logged in successfully!");
         fetchBots(access_token);
       } else if (authView === 'register') {
-        await axios.post(`${API_BASE_URL}/auth/register`, { email, password });
-        alert("Account created! You can now log in.");
+        const res = await axios.post(`${API_BASE_URL}/auth/register`, { email, password });
+        showToast(res.data.message || "Account created!");
         setAuthView('login');
       } else if (authView === 'forgot') {
-        // Updated redirect URL for production
         const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : "";
         await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email, redirect_to: redirectUrl });
-        alert("If an account exists, a reset link has been sent to your email.");
+        showToast("Reset link sent to your email.");
         setAuthView('login');
       }
     } catch (err: any) {
       console.error("Auth error", err);
-      alert(err.response?.data?.detail || "Authentication failed.");
+      showToast(err.response?.data?.detail || "Authentication failed.", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -93,18 +99,17 @@ export default function Home() {
     }
   };
 
-  const createBot = async () => {
-    const name = prompt("Enter a name for your new AI:");
-    if (!name) return;
+  const performCreateBot = async (name: string) => {
     try {
       await axios.post(
         `${API_BASE_URL}/bots`,
         { name },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      showToast("Agent initialized!");
       fetchBots(token!);
     } catch (err) {
-      alert("Error creating bot");
+      showToast("Error creating bot", "error");
     }
   };
 
@@ -115,11 +120,14 @@ export default function Home() {
     setUser(null);
     setIsAdmin(false);
     setSelectedBot(null);
+    showToast("Session ended.");
   };
 
   if (!token) {
     return (
       <div className="flex min-h-screen bg-[#fafafa] selection:bg-blue-100 items-center justify-center p-4">
+        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+        
         <div className="w-full max-w-md space-y-8 animate-fade-in bg-white p-6 sm:p-10 rounded-[2.5rem] shadow-xl shadow-blue-100/50 border border-slate-100">
           <div className="flex flex-col items-center text-center">
             <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg mb-8">
@@ -223,12 +231,12 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-white overflow-hidden font-sans relative">
-      {/* Sidebar Navigation */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-[280px] bg-[#f8fafc] border-r border-slate-200 flex flex-col shrink-0 transition-transform duration-300 ease-in-out
         md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Sidebar Header */}
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5 font-bold text-slate-900 text-lg">
@@ -253,7 +261,7 @@ export default function Home() {
                 Overview
             </button>
             <button 
-                onClick={() => { createBot(); setIsSidebarOpen(false); }}
+                onClick={() => { setIsCreateModalOpen(true); setIsSidebarOpen(false); }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200/50 transition-all duration-200"
             >
                 <Plus size={18} className="text-blue-500" />
@@ -262,7 +270,6 @@ export default function Home() {
           </div>
         </div>
         
-        {/* Bot List Section */}
         <nav className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
           <div className="px-3 mb-3 flex items-center justify-between">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Intelligence</p>
@@ -297,7 +304,6 @@ export default function Home() {
           ))}
         </nav>
 
-        {/* Sidebar Footer */}
         <div className="p-4 bg-slate-100/50 border-t border-slate-200 space-y-3">
           {isAdmin && (
             <Link 
@@ -324,14 +330,11 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* Sidebar Overlay for Mobile */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 bg-white relative">
-        {/* Mobile Navbar Header */}
         <header className="h-16 border-b border-slate-100 flex md:hidden justify-between items-center px-4 shrink-0 bg-white sticky top-0 z-30">
             <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg" onClick={() => setIsSidebarOpen(true)}>
                 <Menu size={24} />
@@ -352,18 +355,25 @@ export default function Home() {
             onDeleteSuccess={() => {
                 setSelectedBot(null);
                 fetchBots(token!);
+                showToast("Agent permanently removed.");
             }}
           />
         ) : (
           <Dashboard 
             bots={bots} 
             onSelectBot={(bot) => setSelectedBot(bot)} 
-            onCreateBot={createBot} 
+            onCreateBot={() => setIsCreateModalOpen(true)} 
             onRefreshBots={() => fetchBots(token!)}
             token={token}
           />
         )}
       </main>
+
+      <CreateAgentModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onConfirm={performCreateBot}
+      />
     </div>
   );
 }
