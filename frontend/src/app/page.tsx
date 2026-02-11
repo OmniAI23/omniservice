@@ -14,7 +14,10 @@ import {
   Bot as BotIcon,
   Menu,
   X,
-  Settings
+  Settings,
+  Eye,
+  EyeOff,
+  ArrowLeft
 } from "lucide-react";
 import Dashboard from "@/components/Dashboard";
 import AgentWorkspace from "@/components/AgentWorkspace";
@@ -30,10 +33,13 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Form State
+  // Auth View Toggle: 'login' | 'register' | 'forgot'
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
+
+  // Form State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -62,8 +68,10 @@ export default function Home() {
         alert("Account created! You can now log in.");
         setAuthView('login');
       } else if (authView === 'forgot') {
-        await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email });
-        alert("If an account exists with this email, a reset link has been sent.");
+        // Updated redirect URL for production
+        const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : "";
+        await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email, redirect_to: redirectUrl });
+        alert("If an account exists, a reset link has been sent to your email.");
         setAuthView('login');
       }
     } catch (err: any) {
@@ -121,7 +129,11 @@ export default function Home() {
               {authView === 'login' ? 'Welcome Back' : authView === 'register' ? 'Create Account' : 'Reset Password'}
             </h2>
             <p className="text-sm text-gray-500 mt-2 font-medium">
-              {authView === 'login' ? 'Enter credentials to access workspace' : authView === 'register' ? 'Start your intelligence journey' : 'Reset your account password'}
+              {authView === 'login' 
+                ? 'Enter credentials to access workspace' 
+                : authView === 'register'
+                  ? 'Start your intelligence journey'
+                  : 'We will email you a password reset link'}
             </p>
           </div>
 
@@ -140,15 +152,35 @@ export default function Home() {
             
             {authView !== 'forgot' && (
               <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700 ml-1">Password</label>
-                  <input
-                      type="password"
-                      placeholder="••••••••"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all duration-200 font-medium"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                  />
+                  <div className="flex justify-between items-center ml-1">
+                      <label className="text-sm font-semibold text-gray-700">Password</label>
+                      {authView === 'login' && (
+                          <button 
+                              type="button" 
+                              onClick={() => setAuthView('forgot')}
+                              className="text-xs font-bold text-blue-600 hover:underline"
+                          >
+                              Forgot?
+                          </button>
+                      )}
+                  </div>
+                  <div className="relative group">
+                    <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all duration-200 font-medium pr-12"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
+                    <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                    >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
               </div>
             )}
 
@@ -159,6 +191,16 @@ export default function Home() {
             >
               {isProcessing ? 'Processing...' : (authView === 'login' ? 'Sign In' : authView === 'register' ? 'Sign Up' : 'Send Reset Link')}
             </button>
+
+            {authView === 'forgot' && (
+              <button 
+                  type="button" 
+                  onClick={() => setAuthView('login')}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 transition"
+              >
+                  <ArrowLeft size={16} /> Back to Login
+              </button>
+            )}
           </form>
 
           {authView !== 'forgot' && (
