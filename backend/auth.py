@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, status, Request, Form
 from supabase import Client
 from postgrest.exceptions import APIError
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 import logging
 
 router = APIRouter(tags=["auth"])
@@ -13,6 +14,7 @@ class UserRegister(BaseModel):
 
 class ForgotPassword(BaseModel):
     email: EmailStr
+    redirect_to: Optional[str] = None
 
 class ResetPassword(BaseModel):
     new_password: str
@@ -109,7 +111,9 @@ def forgot_password(
     """
     supabase: Client = request.app.state.supabase
     try:
-        options = {"redirect_to": "http://localhost:3000/reset-password"}
+        # Default fallback if redirect_to is not provided
+        redirect = payload.redirect_to or "http://localhost:3000/reset-password"
+        options = {"redirect_to": redirect}
         supabase.auth.reset_password_for_email(payload.email, options)
         return {"message": "Password reset email sent."}
     except Exception as e:
